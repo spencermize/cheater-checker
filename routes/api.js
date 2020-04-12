@@ -57,7 +57,7 @@ async function searchWikipedia(text, next){
 					}
 				}).search(sentence, 1, true)
 			// console.log(results[i].result);
-			await timer(1000);
+			await timer(1000); 
 		} catch (e) {
 			console.log(e.message);
 		}
