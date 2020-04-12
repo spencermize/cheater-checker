@@ -132,7 +132,7 @@ async function searchWikipedia(text, item){
 		} else {
 			return result;
 		}
-	})
+	}).filter(result => result)
 
 	return results;
 }

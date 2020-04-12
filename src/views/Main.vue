@@ -94,8 +94,8 @@
 						<v-list-item-title >Student</v-list-item-title>
 						<v-list-item-subtitle v-html="problem.query"></v-list-item-subtitle>
 						<v-list-item-title>Wikipedia <a target="_blank" v-bind:href="'https://en.wikipedia.org/?curid=' + problem.results[0].pageid">({{problem.results[0].title}})</a></v-list-item-title>
-						<v-list-item-subtitle v-html="problem.results[0].snippet"></v-list-item-subtitle>
-						<v-list-item-subtitle>Similarity: {{Math.round(problem.similarity.score)}}</v-list-item-subtitle>					
+						<v-list-item-subtitle><em>Similarity: <span class="score" v-bind:style="{backgroundColor: getScoreColor(problem.similarity.score)}" >{{Math.round(problem.similarity.score)}}</span></em></v-list-item-subtitle>						
+						<v-list-item-subtitle v-html="problem.results[0].snippet"></v-list-item-subtitle>				
 					</v-list-item-content>				
 				</v-list-item>
 			</v-list>
@@ -276,6 +276,12 @@ export default Vue.extend({
 			
 			return json.uuid;
 
+		},
+
+		getScoreColor(score: number): string{
+			if ( score < 15 ) return '#FFCA28';
+			if ( score < 20 ) return '#FFA726';
+			return '#EF5350';
 		},
 
 		getFileIcon(type?: string): string {
