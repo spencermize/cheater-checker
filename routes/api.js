@@ -127,7 +127,7 @@ async function searchWikipedia(text, item){
 			simOpts
 		);
 
-		if ( result.similarity.score < 12) {
+		if ( result.similarity.score < 15) {
 			return null;
 		} else {
 			return result;

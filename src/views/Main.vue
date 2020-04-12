@@ -86,18 +86,21 @@
 				<v-spacer></v-spacer>
 			</v-toolbar>
 			<v-list three-line>
-				<v-list-item 			
-					v-for="(problem, index) in currentFile.scanData"
+				<template v-for="(problem, index) in currentFile.scanData">
+					<v-divider
 					:key="index"
-				>
-					<v-list-item-content>
-						<v-list-item-title >Student</v-list-item-title>
-						<v-list-item-subtitle v-html="problem.query"></v-list-item-subtitle>
-						<v-list-item-title>Wikipedia <a target="_blank" v-bind:href="'https://en.wikipedia.org/?curid=' + problem.results[0].pageid">({{problem.results[0].title}})</a></v-list-item-title>
-						<v-list-item-subtitle><em>Similarity: <span class="score" v-bind:style="{backgroundColor: getScoreColor(problem.similarity.score)}" >{{Math.round(problem.similarity.score)}}</span></em></v-list-item-subtitle>						
-						<v-list-item-subtitle v-html="problem.results[0].snippet"></v-list-item-subtitle>				
-					</v-list-item-content>				
-				</v-list-item>
+					:inset="true"
+					></v-divider>				
+					<v-list-item :key="index +'.item'">
+						<v-list-item-content>
+							<v-list-item-title >Student</v-list-item-title>
+							<v-list-item-subtitle v-html="problem.query"></v-list-item-subtitle>
+							<v-list-item-title>Wikipedia <a target="_blank" v-bind:href="'https://en.wikipedia.org/?curid=' + problem.results[0].pageid">({{problem.results[0].title}})</a></v-list-item-title>
+							<v-list-item-subtitle><em>Similarity: <span class="score" v-bind:style="{backgroundColor: getScoreColor(problem.similarity.score)}" >{{Math.round(problem.similarity.score)}}</span></em></v-list-item-subtitle>						
+							<v-list-item-subtitle v-html="problem.results[0].snippet"></v-list-item-subtitle>				
+						</v-list-item-content>				
+					</v-list-item>
+				</template>
 			</v-list>
 		</v-card>
 	</v-dialog>
@@ -191,24 +194,21 @@ export default Vue.extend({
 		loadFiles: async function() {
 			this.appStatus.action = 'uploading';
 			for (let i = 0; i < this.files.length; i++) {
-				if (this.appStatus.action === 'uploading') {
-					const file = this.files[i];
-					try {
-						const n = file.lastModified;
-						this.fileMeta[n].status = 'searching';
-						this.fileMeta[n].uuid = await this.queue(file);
-						this.fileMeta[n].status = 'queued';
-						this.listen(this.fileMeta[n]);
-					} catch (e) {
-						this.fileMeta[file.lastModified].status = 'error';
-						this.fileMeta[file.lastModified].message = e.message;
-						this.appStatus.snackbar = {
-							text: e.message,
-							color: 'red',
-							show: true
-						}
+				const file = this.files[i];
+				try {
+					const n = file.lastModified;
+					this.fileMeta[n].status = 'searching';
+					this.fileMeta[n].uuid = await this.queue(file);
+					this.fileMeta[n].status = 'queued';
+					this.listen(this.fileMeta[n]);
+				} catch (e) {
+					this.fileMeta[file.lastModified].status = 'error';
+					this.fileMeta[file.lastModified].message = e.message;
+					this.appStatus.snackbar = {
+						text: e.message,
+						color: 'red',
+						show: true
 					}
-
 				}
 			}
 			this.appStatus.action = '';
@@ -279,8 +279,8 @@ export default Vue.extend({
 		},
 
 		getScoreColor(score: number): string{
-			if ( score < 15 ) return '#FFCA28';
-			if ( score < 20 ) return '#FFA726';
+			if ( score < 17 ) return '#FFCA28';
+			if ( score < 22 ) return '#FFA726';
 			return '#EF5350';
 		},
 
