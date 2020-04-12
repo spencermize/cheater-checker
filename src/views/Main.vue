@@ -28,8 +28,9 @@
 					<v-btn v-if="file.status == 'pre'" icon v-on:click="removeFile(file.lastModified)">
 						<v-icon color="red lighten-1">mdi-close</v-icon>
 					</v-btn>
-					<v-progress-circular v-if="file.status == 'searching'"
-						:indeterminate="true"
+					<v-progress-circular v-if="['queued', 'complete'].includes(file.status) || !isNaN(file.status)"
+						:indeterminate="['queued', 'complete'].includes(file.status)"
+						:value="file.status * 100"
 					></v-progress-circular>
 					<v-icon v-if="file.status == 'success'" color="green darken-1">mdi-check</v-icon>
 					<v-icon v-if="file.status == 'issues'" color="orange lighten-1" @click.stop="dialog = true" v-on:click="setCurrent(file)">mdi-check</v-icon>
@@ -44,7 +45,7 @@
 		</v-list>
     </div>
 	<v-toolbar class="d-flex flex-row-reverse mt-3" color="primary">
-		<v-tooltip top v-if="files.length && !appStatus.uploading">
+		<v-tooltip top v-if="files.length && !appStatus.action.length > 0 ">
 			<template v-slot:activator="{ on }">
 				<v-btn v-on:click="clear" depressed color="blue-grey darken-2" large v-on="on"><span class="white--text">Clear All</span><v-icon color="white" class="ml-2">mdi-close</v-icon> </v-btn>
 			</template>
@@ -52,7 +53,7 @@
 		</v-tooltip>		
 		<v-tooltip top v-if="files.length" >
 			<template v-slot:activator="{ on }">
-				<v-btn :loading="appStatus.uploading" v-on:click="loadFiles" depressed color="blue darken-3" large v-on="on" class="ml-2"><span class="white--text">{{ files.length }} files</span> <v-icon color="white" class="ml-2">mdi-send</v-icon> </v-btn>
+				<v-btn :loading="appStatus.action.length > 0 " v-on:click="loadFiles" depressed color="blue darken-3" large v-on="on" class="ml-2"><span class="white--text">{{ files.length }} files</span> <v-icon color="white" class="ml-2">mdi-send</v-icon> </v-btn>
 			</template>
 			<span>Send {{files.length}} files for Scanning</span>
 		</v-tooltip>
@@ -84,18 +85,21 @@
 				<v-toolbar-title>{{currentFile.name}}</v-toolbar-title>
 				<v-spacer></v-spacer>
 			</v-toolbar>
-		<v-list>
-			<v-list-item 			
-				v-for="problem in currentFile.scanData"
-				:key="problem.results[0].pageid"
-			>
-			<h3>Student Wrote</h3>
-				{{problem.query}}
-			<h3>Wikipedia</h3>
-				<span v-html="problem.results[0].snippet"></span>
-			</v-list-item>
-		</v-list>
-      </v-card>
+			<v-list three-line>
+				<v-list-item 			
+					v-for="(problem, index) in currentFile.scanData"
+					:key="index"
+				>
+					<v-list-item-content>
+						<v-list-item-title >Student</v-list-item-title>
+						<v-list-item-subtitle v-html="problem.query"></v-list-item-subtitle>
+						<v-list-item-title>Wikipedia <a target="_blank" v-bind:href="'https://en.wikipedia.org/?curid=' + problem.results[0].pageid">({{problem.results[0].title}})</a></v-list-item-title>
+						<v-list-item-subtitle v-html="problem.results[0].snippet"></v-list-item-subtitle>
+						<v-list-item-subtitle>Similarity: {{Math.round(problem.similarity.score)}}</v-list-item-subtitle>					
+					</v-list-item-content>				
+				</v-list-item>
+			</v-list>
+		</v-card>
 	</v-dialog>
   </v-container>
 </template>
@@ -108,7 +112,8 @@ interface FileMeta {
 	icon?: string;
 	iconClass?: string;
 	iconColor?: string;
-	status: string;
+	status: string|number;
+	uuid?: string;
 	message?: string;
 	scanData?: [];	
 }
@@ -117,163 +122,199 @@ interface FileWithMeta extends File, FileMeta {
 
 }
 
-interface PageData {
-	files: File[];
-	fileMeta: Record<number, FileMeta>;
-	currentFile: FileWithMeta|null;
-	appStatus: {
-		uploading?: boolean;
-		snackbar?: {};
-	};
-	dragging: boolean;
-}
-const data: PageData = {
-	files: [],
-	fileMeta: {},
-	dragging: false,
-	currentFile: null,
-	appStatus: {
-		snackbar: {
-
-		}
-	}
-}
 export default Vue.extend({
-  name: "Main",
+	name: "Main",
 
-  data: () => (data),
+	data()  { 
+		return {
+			files: [] as File[],
+			fileMeta: {} as Record<number, FileMeta>,
+			monitors: {} as Record<string, EventSource>,
+			dragging: false as boolean,
+			currentFile: null as FileWithMeta|null,
+			appStatus: {
+				action: '' as string,
+				snackbar: {
 
-  methods: {
-	filesWithMeta: function() {
-		return Array.from(this.files).map( (file) => {
-			return Object.assign(file, this.fileMeta[file.lastModified]);
-		});
-	},
-    dropFile: function(e: DragEvent) {
-		this.stopDraggingFiles(e);
-		const transfer: DataTransfer = e.dataTransfer || new DataTransfer;
-		this.files.push(...Array.from(transfer.files));
-		this.files.forEach( file => {
-			this.fileMeta[file.lastModified] = {
-				icon: this.getFileIcon(file.type),
-				iconColor: this.getFileIconColor(file.type),
-				iconClass: 'blue white--text',
-				status: 'pre'
+				}
 			}
-
-		})
-    },
-
-	startDraggingFiles: function(e: DragEvent) {
-		this.dragging = true;
+		}
 	},
 
-	stopDraggingFiles: function(e: DragEvent) {
-		this.dragging = false;
+	watch: {
+
 	},
+	methods: {
+		filesWithMeta: function() {
+			return Array.from(this.files).map( (file) => {
+				return Object.assign(file, this.fileMeta[file.lastModified]);
+			});
+		},
+		dropFile: function(e: DragEvent) {
+			this.stopDraggingFiles(e);
+			const transfer: DataTransfer = e.dataTransfer || new DataTransfer;
+			this.files.push(...Array.from(transfer.files));
+			this.files.forEach( file => {
+				Vue.set(this.fileMeta, file.lastModified, {
+					icon: this.getFileIcon(file.type),
+					iconColor: this.getFileIconColor(file.type),
+					iconClass: 'blue white--text',
+					status: 'pre'
+				});
+			})
+		},
 
-	clear: function() {
-		this.files = [];
-		this.fileMeta = {};
-		this.appStatus.uploading = false;
+		startDraggingFiles: function(e: DragEvent) {
+			this.dragging = true;
+		},
 
-		this.$forceUpdate();
-	},
+		stopDraggingFiles: function(e: DragEvent) {
+			this.dragging = false;
+		},
 
-	setCurrent: function(file: FileWithMeta|null) {
-		console.log(file);
-		this.currentFile = file;
+		clear: function() {
+			this.files = [];
+			this.fileMeta = {};
+			this.appStatus.action = '';
+		},
 
-		this.$forceUpdate();
-	},
+		setCurrent: function(file: FileWithMeta|null) {
+			console.log(file);
+			this.currentFile = file;
+		},
 
-	removeFile: function(removeFile: number) {
-		this.files = this.files.filter( file => file.lastModified != removeFile );
-		delete this.fileMeta[removeFile];
-	},
+		removeFile: function(removeFile: number) {
+			this.files = this.files.filter( file => file.lastModified != removeFile );
+			delete this.fileMeta[removeFile];
+		},
 
-	loadFiles: async function() {
-		this.appStatus.uploading = true;
-		for (let i = 0; i < this.files.length; i++) {
-			if (this.appStatus.uploading) {
-				const file = this.files[i];
-				try {
-					const n = file.lastModified;
-					this.fileMeta[n].status = 'searching';
-					this.$forceUpdate();
-					this.fileMeta[n].scanData = await this.getText(file);
-					this.fileMeta[n].status = this.fileMeta[n].scanData?.length ? 'issues' : 'success';
-					this.$forceUpdate();
-				} catch (e) {
-					this.fileMeta[file.lastModified].status = 'error';
-					this.fileMeta[file.lastModified].message = e.message;
-					this.appStatus.snackbar = {
-						text: e.message,
-						color: 'red',
-						show: true
+		loadFiles: async function() {
+			this.appStatus.action = 'uploading';
+			for (let i = 0; i < this.files.length; i++) {
+				if (this.appStatus.action === 'uploading') {
+					const file = this.files[i];
+					try {
+						const n = file.lastModified;
+						this.fileMeta[n].status = 'searching';
+						this.fileMeta[n].uuid = await this.queue(file);
+						this.fileMeta[n].status = 'queued';
+						this.listen(this.fileMeta[n]);
+					} catch (e) {
+						this.fileMeta[file.lastModified].status = 'error';
+						this.fileMeta[file.lastModified].message = e.message;
+						this.appStatus.snackbar = {
+							text: e.message,
+							color: 'red',
+							show: true
+						}
+					}
+
+				}
+			}
+			this.appStatus.action = '';
+
+		},
+
+		listen: function(file: FileMeta) {
+			if (file.uuid) {
+				this.monitors[file.uuid] = new EventSource(`/api/status/${file.uuid}`);
+				const event = this.monitors[file.uuid];
+
+				event.onmessage = (ev) => {
+					const parsed = JSON.parse(ev.data);
+					this.appStatus.action = 'processing';
+					file.status = parsed.status;
+					if(file.status === 'complete') {
+						event.close();
+						this.getResults(file);
+						delete this.monitors[file.uuid || ''];
+					}
+				};
+
+				event.onerror = () => {
+					event.close();
+					file.status = 'error';
+					delete this.monitors[file.uuid || ''];
+					if (!this.monitors.length) {
+						this.appStatus.action = '';
 					}
 				}
-
 			}
-		}
-		this.appStatus.uploading = false;
 
-		this.$forceUpdate();
-	},
+		},
 
-	getText: async function(file: File): Promise<[]> {
-		const formData = new FormData();
-		formData.append('document', file, file.name);
-	
-		const resp = await fetch('/api/check', {
-			method: 'POST',
-			body: formData
-		});
-		const json = await resp.json();
+		getResults: async function(file: FileMeta) {
+			const resp = await fetch(`/api/results/${file.uuid}`, {
+				method: 'GET'
+			});
+			const json = await resp.json();
+			
+			if ( resp.status !== 200) { console.log(json.error); throw new Error(json.error)}
+			file.scanData = json;
+			if ( json.length ) {
+				file.status = "issues";
+			} else {
+				file.status = "success";
+			}
+
+			if( !Object.keys(this.monitors).length ) {
+				this.appStatus.action = '';
+			}
+		},
+
+		queue: async function(file: File): Promise<string> {
+			const formData = new FormData();
+			formData.append('document', file, file.name);
 		
-		if ( resp.status !== 200) { console.log(json.error); throw new Error(json.error)}
-		
-		return json;
+			const resp = await fetch('/api/check', {
+				method: 'POST',
+				body: formData
+			});
+			const json = await resp.json();
+			
+			if ( resp.status !== 200) { console.log(json.error); throw new Error(json.error)}
+			
+			return json.uuid;
 
-	},
+		},
 
-	getFileIcon(type?: string): string {
-		switch (type) {
-			case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-				return 'mdi-file-document'
-			case 'application/vnd.ms-powerpoint':
-			case 'application/vnd.openxmlformats-officedocument.presentationml.presentation':
-				return 'mdi-presentation-play';
-			case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
-			case 'application/vnd.ms-excel':
-				return 'mdi-file-table'
-			case 'application/pdf' :
-				return 'mdi-adobe-acrobat';					
-			case 'application/json' :
-				return 'mdi-code-json';				
-			default :
-				return 'mdi-file-document'
-		}
-	},
+		getFileIcon(type?: string): string {
+			switch (type) {
+				case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+					return 'mdi-file-document'
+				case 'application/vnd.ms-powerpoint':
+				case 'application/vnd.openxmlformats-officedocument.presentationml.presentation':
+					return 'mdi-presentation-play';
+				case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+				case 'application/vnd.ms-excel':
+					return 'mdi-file-table'
+				case 'application/pdf' :
+					return 'mdi-adobe-acrobat';					
+				case 'application/json' :
+					return 'mdi-code-json';				
+				default :
+					return 'mdi-file-document'
+			}
+		},
 
-	getFileIconColor(type?: string): string {
-		switch (type) {
-			case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-				return 'primary'
-			case 'application/vnd.ms-powerpoint':
-			case 'application/vnd.openxmlformats-officedocument.presentationml.presentation':
-				return 'amber lighten-1';
-			case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
-			case 'application/vnd.ms-excel':
-				return 'green darken-1';
-			case 'application/json' :
-				return 'orange lighten-1';
-			case 'application/pdf' :
-				return 'red lighten-1';				
-			default :
-				return 'primary';
-		}
-	}	
-  }
+		getFileIconColor(type?: string): string {
+			switch (type) {
+				case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+					return 'primary'
+				case 'application/vnd.ms-powerpoint':
+				case 'application/vnd.openxmlformats-officedocument.presentationml.presentation':
+					return 'amber lighten-1';
+				case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+				case 'application/vnd.ms-excel':
+					return 'green darken-1';
+				case 'application/json' :
+					return 'orange lighten-1';
+				case 'application/pdf' :
+					return 'red lighten-1';				
+				default :
+					return 'primary';
+			}
+		}	
+	}
 });
 </script>
