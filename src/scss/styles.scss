@@ -1,0 +1,66 @@
+// https://css-tricks.com/snippets/sass/custom-scrollbars-mixin/
+@mixin scrollbars($size, $foreground-color, $background-color: mix($foreground-color, white,  50%)) {
+  // For Google Chrome
+  scrollbar-width: thin;
+  scrollbar-color: $foreground-color $background-color;  
+  &::-webkit-scrollbar {
+    width:  $size;
+    height: $size;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: $foreground-color;
+	border-radius: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: $background-color;
+  }
+
+  // For Internet Explorer
+  & {
+    scrollbar-face-color: $foreground-color;
+    scrollbar-track-color: $background-color;
+  }
+}
+
+@font-face {
+  font-family: 'Gabriella Regular';
+  font-style: normal;
+  font-weight: normal;
+  src: local('Gabriella Regular'), url('/font/Gabriela-Regular.ttf') format('truetype');
+}
+
+h1,
+h2,
+h3,
+h4 {
+	font-family: 'Gabriella Regular', 'Century Gothic';
+}
+
+* {
+	font-family: 'Roboto Light';
+}
+
+[v-cloak] {display: none}
+
+.dropper {
+	height: 30vh;
+	border: 1px solid #ccc;
+	overflow-y: auto;
+	overflow-x: hidden;
+	@include scrollbars(0.5em, #1976d2, #ccc);
+	&.dragging {
+		border-width: 4px;
+	}
+	.row {
+		height: 100%;
+	}
+	.v-avatar > .mdi.white--text {
+		background-color: transparent !important; // ugh
+	}
+}
+
+.searchmatch {
+	font-weight: bold;
+}
