@@ -6,16 +6,6 @@ const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 const wiki = require('../wiki/dist/wiki').default;
 
-function arrayToObj(array, key) {
-  const initialValue = {};
-  return array.reduce((obj, item) => {
-    return {
-      ...obj,
-      [item[key]]: item,
-    };
-  }, initialValue);
-}
-
 function timer(ms) {
 	return new Promise(res => setTimeout(res, ms));
 }
