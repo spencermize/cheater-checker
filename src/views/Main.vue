@@ -274,6 +274,7 @@ export default Vue.extend({
 				file.status = "error";
 				file.message = "There was an error processing your request. We probably couldn't read that file or filetype."
 				console.log(json.error);
+				return
 			}
 			file.scanData = json;
 			if ( json.length ) {
