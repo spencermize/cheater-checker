@@ -32,12 +32,16 @@ async function watchQueue() {
 		isRunning = true;
 		const item = queue[0];
 		item.status = 'processing';
-		const text = await getText(item.file);
-		const results = await item.action(text, item);
-		queue.shift();
-
-		completed[item.uuid] = results;
-		watchQueue();
+		try {
+			const text = await getText(item.file);
+			const results = await item.action(text, item);
+			queue.shift();
+			completed[item.uuid] = results;
+			watchQueue();			
+		} catch (e) {
+			queue.shift();
+			watchQueue();
+		}
 	} else {
 		isRunning = false;
 	}

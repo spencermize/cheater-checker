@@ -254,6 +254,7 @@ export default Vue.extend({
 				event.onerror = () => {
 					event.close();
 					file.status = 'error';
+					file.message = 'There was an error on the server. Please try again.';
 					delete this.monitors[file.uuid || ''];
 					if (!this.monitors.length) {
 						this.appStatus.action = '';
@@ -269,7 +270,11 @@ export default Vue.extend({
 			});
 			const json = await resp.json();
 			
-			if ( resp.status !== 200) { console.log(json.error); throw new Error(json.error)}
+			if ( resp.status !== 200) { 
+				file.status = "error";
+				file.message = "There was an error processing your request. We probably couldn't read that file or filetype."
+				console.log(json.error);
+			}
 			file.scanData = json;
 			if ( json.length ) {
 				file.status = "issues";
@@ -292,7 +297,9 @@ export default Vue.extend({
 			});
 			const json = await resp.json();
 			
-			if ( resp.status !== 200) { console.log(json.error); throw new Error(json.error)}
+			if ( resp.status !== 200) { 
+				console.log(json.error);
+			}
 			
 			return json.uuid;
 
