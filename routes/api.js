@@ -100,13 +100,14 @@ async function searchWikipedia(text, item){
 		try {
 			console.log(sentence);
 			results[i] = await wiki({ 
-					apiUrl: 'https://en.wikipedia.org/w/api.php',
-					headers: { 
-						'User-Agent': 'cheater-checker (https://cheater-checker.herokuapp.com/) wiki.js' 
-					}
-				}).search(sentence, 1, true)
+				apiUrl: 'https://en.wikipedia.org/w/api.php',
+				headers: { 
+					'User-Agent': 'cheater-checker (https://cheater-checker.herokuapp.com/) wiki.js',
+					'Accept-Encoding': 'gzip'
+				}
+			}).search(sentence, 1, true)
 			
-			await timer(1000);
+			await timer(1);
 		} catch (e) {
 			console.log(e.message);
 		}
@@ -115,7 +116,7 @@ async function searchWikipedia(text, item){
 	results = results.filter(result => {
 		return result.results.length > 0;
 	});
-	// console.log(results[0].results[0]);
+
 	results = results.map(result => {
 		delete result.next;
 

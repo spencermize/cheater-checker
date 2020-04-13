@@ -9,7 +9,7 @@
 		</div>
 		<v-list two-line v-if="files.length">
 			<v-list-item
-			v-for="file in filesWithMeta()"
+			v-for="file in fileMeta"
 			:key="file.lastModified"
 			>
 				<v-list-item-avatar :color="file.iconColor" light>
@@ -45,9 +45,15 @@
 		</v-list>
     </div>
 	<v-toolbar class="d-flex flex-row-reverse mt-3" color="primary">
+		<v-tooltip top v-if="files.length ">
+			<template v-slot:activator="{ on }">
+				<v-btn v-on:click="download" depressed color="blue-grey darken-2" large v-on="on"><span class="white--text">Download Current State</span><v-icon color="white" class="ml-2">mdi-folder-download-outline</v-icon> </v-btn>
+			</template>
+			<span>Download</span>
+		</v-tooltip>		
 		<v-tooltip top v-if="files.length && !appStatus.action.length > 0 ">
 			<template v-slot:activator="{ on }">
-				<v-btn v-on:click="clear" depressed color="blue-grey darken-2" large v-on="on"><span class="white--text">Clear All</span><v-icon color="white" class="ml-2">mdi-close</v-icon> </v-btn>
+				<v-btn v-on:click="clear" depressed color="blue-grey darken-2" large v-on="on" class="ml-2"><span class="white--text" >Clear All</span><v-icon color="white" class="ml-2">mdi-close</v-icon> </v-btn>
 			</template>
 			<span>Clear these files</span>
 		</v-tooltip>		
@@ -118,11 +124,11 @@ interface FileMeta {
 	status: string|number;
 	uuid?: string;
 	message?: string;
-	scanData?: [];	
-}
-
-interface FileWithMeta extends File, FileMeta {
-
+	scanData?: [];
+	lastModified?: number;
+	name?: string;
+	size?: number;
+	type?: string;
 }
 
 export default Vue.extend({
@@ -134,7 +140,7 @@ export default Vue.extend({
 			fileMeta: {} as Record<number, FileMeta>,
 			monitors: {} as Record<string, EventSource>,
 			dragging: false as boolean,
-			currentFile: null as FileWithMeta|null,
+			currentFile: null as FileMeta|null,
 			appStatus: {
 				action: '' as string,
 				snackbar: {
@@ -148,21 +154,29 @@ export default Vue.extend({
 
 	},
 	methods: {
-		filesWithMeta: function() {
-			return Array.from(this.files).map( (file) => {
-				return Object.assign(file, this.fileMeta[file.lastModified]);
-			});
-		},
 		dropFile: function(e: DragEvent) {
 			this.stopDraggingFiles(e);
 			const transfer: DataTransfer = e.dataTransfer || new DataTransfer;
 			this.files.push(...Array.from(transfer.files));
 			this.files.forEach( file => {
+				if (file.type.includes('json')){
+					const reader = new FileReader();
+					reader.onload = (e: any) => {
+						const data = JSON.parse(e.target.result)
+						this.fileMeta = data.fileMeta;
+						this.files = data.files;
+					}
+					reader.readAsText(file);
+				}
 				Vue.set(this.fileMeta, file.lastModified, {
 					icon: this.getFileIcon(file.type),
 					iconColor: this.getFileIconColor(file.type),
-					iconClass: 'blue white--text',
-					status: 'pre'
+					iconClass: 'white--text',
+					status: 'pre',
+					name: file.name,
+					lastModified: file.lastModified,
+					size: file.size,
+					type: file.type
 				});
 			})
 		},
@@ -175,13 +189,19 @@ export default Vue.extend({
 			this.dragging = false;
 		},
 
+		resetStatus: function() {
+			Object.keys(this.fileMeta).forEach((key: string) => {
+				this.fileMeta[parseInt(key)].status = 'pre';
+			});
+		},
+
 		clear: function() {
 			this.files = [];
 			this.fileMeta = {};
 			this.appStatus.action = '';
 		},
 
-		setCurrent: function(file: FileWithMeta|null) {
+		setCurrent: function(file: FileMeta|null) {
 			console.log(file);
 			this.currentFile = file;
 		},
@@ -320,7 +340,18 @@ export default Vue.extend({
 				default :
 					return 'primary';
 			}
-		}	
+		},
+
+		download() {
+			const element = document.createElement('a');
+			element.setAttribute('href', 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(this.$data)));
+			element.setAttribute('download', `Cheater Checker.${Date.now()}.json`);
+
+			element.style.display = 'none';
+			document.body.appendChild(element);
+			element.click();
+			document.body.removeChild(element);			
+		}
 	}
 });
 </script>
